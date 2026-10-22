@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+.git
+.github
+plan
+.env
+.env.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.local
+.vscode
+.idea
+README.md
