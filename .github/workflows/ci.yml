@@ -1,0 +1,66 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Lint, Type Check & Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: ${{ hashFiles('package-lock.json') != '' && 'npm' || '' }}
+
+      - name: Check project scaffold
+        id: check_scaffold
+        run: |
+          if [ -f package.json ]; then
+            echo "pkg_exists=true" >> "$GITHUB_OUTPUT"
+            echo "package.json found. Proceeding with full CI verification."
+          else
+            echo "pkg_exists=false" >> "$GITHUB_OUTPUT"
+            echo "package.json not yet committed (waiting for Frontend #2). CI baseline environment check passed."
+          fi
+
+      - name: Install dependencies
+        if: steps.check_scaffold.outputs.pkg_exists == 'true'
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Type Check
+        if: steps.check_scaffold.outputs.pkg_exists == 'true'
+        run: |
+          if [ -f tsconfig.json ]; then
+            npx tsc --noEmit
+          else
+            echo "tsconfig.json not found, skipping standalone tsc check."
+          fi
+
+      - name: Lint with ESLint
+        if: steps.check_scaffold.outputs.pkg_exists == 'true'
+        run: |
+          if npm run | grep -q "^  lint$"; then
+            npm run lint
+          else
+            echo "lint script not configured in package.json, skipping."
+          fi
+
+      - name: Build Verification
+        if: steps.check_scaffold.outputs.pkg_exists == 'true'
+        run: |
+          npm run build

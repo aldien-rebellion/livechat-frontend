@@ -44,3 +44,26 @@ docker run --rm -p 80:80 livechat-frontend:local
 ```powershell
 docker compose --profile app up -d --build frontend
 ```
+
+---
+
+## CI Pipeline — Frontend #8
+
+GitHub Actions workflow อยู่ที่ [`.github/workflows/ci.yml`](.github/workflows/ci.yml) รันอัตโนมัติบนทุก Pull Request และ Push เข้า branch `main` (อ้างอิง Workshop 11 กิจกรรมที่ 1):
+1. **Type Checking:** ตรวจสอบความถูกต้องของ TypeScript ด้วย `npx tsc --noEmit`
+2. **Linting:** ตรวจสอบ Code Style และ Syntax ด้วย `npm run lint` (ESLint)
+3. **Build Smoke Test:** ทดสอบว่าบันเดิล Production ผ่านจริงด้วย `npm run build` ป้องกันไม่ให้โค้ดพังถูก Merge เข้าสู่ `main`
+
+### การรันตรวจสอบบนเครื่อง Local
+
+```powershell
+# ติดตั้ง dependencies
+npm ci
+
+# ตรวจสอบ Types และ Lint
+npx tsc --noEmit
+npm run lint
+
+# ทดสอบ Build
+npm run build
+```
