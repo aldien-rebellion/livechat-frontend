@@ -5,8 +5,11 @@ import ChatArea from '../components/ChatArea'
 import { createMockMessage, createMockMessages, mockCurrentUser } from '../services/mockMessageData'
 import { mockChannels, mockWorkspaces } from '../services/mockWorkspaceData'
 import type { Channel, WorkspaceSelection } from '../types/workspace'
+import { useAuth } from '../hooks/useAuth'
+import { isMockAuth } from '../services/authService'
 
 export default function Workspace() {
+  const { session, logout } = useAuth()
   const [messagesByChannel, setMessagesByChannel] = useState(createMockMessages)
   const [channels, setChannels] = useState<Channel[]>(() => [...mockChannels])
   const [selection, setSelection] = useState<WorkspaceSelection>(() => {
@@ -85,6 +88,10 @@ export default function Workspace() {
         </div>}
       </dialog>
       <main id="workspace-content" tabIndex={-1} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden focus:outline-none">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 px-4 py-2 text-sm sm:px-8">
+          <span className="min-w-0 break-all text-slate-300">{session?.user.full_name || session?.user.username} · {isMockAuth ? 'Mock auth / demo chat' : 'Demo chat'}</span>
+          <button type="button" onClick={logout} className="shrink-0 rounded-lg border border-slate-600 px-3 py-2 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300">Sign out</button>
+        </div>
         <header className="flex min-h-20 shrink-0 items-center gap-3 border-b border-slate-800 px-4 py-4 sm:px-8">
           <button type="button" aria-label="Open sidebar" aria-haspopup="dialog" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)} className="shrink-0 rounded-lg border border-slate-700 p-3 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300 md:hidden"><Menu aria-hidden="true" className="h-5 w-5" /></button>
           <div className="min-w-0"><p className="break-words text-xs text-slate-400">{workspace?.name ?? 'Workspace'}</p><h1 className="mt-1 flex items-start gap-2 text-lg font-semibold"><ChannelIcon aria-hidden="true" className="mt-1 h-5 w-5 shrink-0 text-teal-300" /><span className="min-w-0 break-words">{selectedChannel?.name ?? 'No channel selected'}</span></h1></div>

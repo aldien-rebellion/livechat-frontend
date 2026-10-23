@@ -16,8 +16,8 @@ npm run dev
 ```
 
 เปิด URL ที่ Vite แสดงใน terminal (โดยปกติ `http://localhost:5173`)
-หน้าเริ่มต้นแสดง Sidebar ของ Issue #4 และ Chat UI ของ Issue #5
-รันได้โดยไม่ต้องเปิด Backend โดยใช้ Mock Data แยกจาก UI
+หน้าเริ่มต้นนำไป Login ของ Issue #3; เมื่อเข้าสู่ระบบจึงแสดง Sidebar และ Chat UI
+ทดสอบโดยไม่เปิด Backend ได้ด้วย Mock Auth แบบ opt-in ตามหัวข้อ Issue #3 ด้านล่าง
 
 | คำสั่ง | การใช้งาน |
 |---|---|
@@ -36,14 +36,14 @@ src/
 ├── hooks/        # พื้นที่สำหรับ custom hooks
 ├── pages/        # พื้นที่สำหรับหน้าจอ
 ├── services/     # พื้นที่สำหรับ API และ transport
-├── App.tsx       # แสดงหน้า Workspace ของ Issue #4
+├── App.tsx       # React Router พร้อม Guest/Private routes
 ├── main.tsx      # React entry point
 └── index.css     # Tailwind directives
 ```
 
 Tailwind CSS ใช้สาย **3.4** ผ่าน PostCSS และ `tailwind.config.js` ตาม Blueprint
 ติดตั้ง `lucide-react`, `axios` และ `react-router-dom` ไว้แล้วตาม Issue #2
-ส่วน Auth, WebSocket และ Search จะพัฒนาใน Issue #3, #6 และ #7
+ส่วน Auth อยู่ใน Issue #3; WebSocket และ Search เป็นงาน Issue #6 และ #7
 
 Production ใช้ base path `/` และผลลัพธ์ `dist/` ตาม Dockerfile เดิม
 เมื่อเชื่อม Backend ใน issue ถัดไป ให้ใช้ `/api/v1` และ `/ws` ผ่าน Nginx ของระบบ
@@ -96,6 +96,78 @@ Frontend container เดี่ยวและ Vite server ในขั้น se
 5. สลับ Design Studio / New Workspace และสร้าง Channel ใหม่ ตรวจ selection และข้อความ
 6. ตรวจที่ 375px, 768px, 1280px รวม drawer, composer, ข้อความยาว และ Browser Console
 7. Reload ตรวจว่าข้อมูลกลับเป็น mock เริ่มต้น
+
+---
+
+## Login / Register และ JWT State — Frontend #3
+
+อ่านข้อกำหนดจาก `plan/team_issue_specifications.md`, Roadmap และ Blueprint ของทั้งสอง repo แล้ว
+Issue นี้รวม Axios auto-refresh และขึ้นกับ Backend #11 ซึ่ง checkout ปัจจุบันยังไม่มี `app/`
+
+- `/login`, `/register` เป็น Guest routes; `/workspace` เป็น Private route; `/` และ URL ที่ไม่รู้จักนำไป route ที่เหมาะกับสถานะ Auth
+- หน้า Auth มี validation, inline errors พร้อม focus ช่องแรกที่ผิด, server/network errors, loading และป้องกัน submit ซ้ำ
+- Register สำเร็จนำไป Login พร้อมข้อความยืนยัน ไม่สมมติว่า Register คืน token
+- `AuthProvider` / `useAuth` เปิดให้ใช้ session (user, access token และ refresh token) ผ่าน React Context
+- Token อยู่ในหน่วยความจำเท่านั้น ไม่มี localStorage, sessionStorage หรือ cookie; reload แล้วต้อง Login ใหม่
+- `authClient.ts` แยก transport ของ Auth ออกจาก `api` ที่แนบ Bearer token; ใช้ `authService.api` สำหรับ protected API ในงานถัดไป
+- เมื่อ protected API ตอบ 401 จะใช้ refresh token, รวมคำขอ refresh ที่เข้ามาพร้อมกัน, อัปเดต token และ retry ครั้งเดียว
+- Refresh ล้มเหลวหรือ retry ยังได้ 401 จะล้าง session และกลับ Login; การ Sign out ระหว่าง refresh จะไม่คืน session เก่า
+- Sign out ล้าง state ฝั่ง Client เท่านั้น แผนยังไม่มี logout/revoke endpoint
+- Sidebar/Chat ยังคงเป็นข้อมูลจำลองของ #4/#5 พร้อมป้าย Demo chat ไม่ได้เชื่อม WebSocket หรือ Search
+
+### เปิด Mock Auth สำหรับพัฒนา
+
+Mock ต้องเปิดเอง และใช้งานเฉพาะ Vite development server:
+
+```powershell
+$env:VITE_AUTH_MODE = 'mock'
+npm run dev
+```
+
+เข้า `/register` และสร้างบัญชีทดสอบก่อน Login ไม่มีบัญชีหรือ credentials ที่ seed ไว้
+Mock อยู่ใน `services/mockAuthAdapter.ts` ใช้ Axios adapter โดยไม่ส่ง network request
+ข้อมูลบัญชีและ token จำลองหายเมื่อ reload; token ขึ้นต้น `mock-only-` และไม่ใช่ JWT จริง
+Production build ตัด Mock ออก แม้ตั้ง `VITE_AUTH_MODE=mock`
+กลับ API จริงโดยตั้ง `VITE_AUTH_MODE=api` หรือเอาตัวแปรนี้ออก แล้ว restart Vite
+
+### เตรียมเชื่อม Backend #11
+
+คัดลอก `.env.example` ไป `.env.local` แล้วตั้ง `VITE_API_BASE_URL`:
+
+- ค่าเริ่มต้น `/api/v1` สำหรับ Nginx ที่ proxy ไป Backend บน host เดียวกัน
+- ถ้ารัน Vite แยก Backend ให้ใช้ `http://localhost:8000/api/v1` และ Backend ต้องรองรับ CORS ของ origin ที่ใช้งาน
+- ค่า `VITE_*` เป็น public build configuration ห้ามใส่ secrets
+
+ตามแผน Login ส่งกลับ `{ access_token, refresh_token, token_type, user }`
+Refresh ส่ง `{ refresh_token }` และรับ `{ access_token }` หรือ `{ access_token, refresh_token }` หาก rotate
+ส่วนที่แผนยังไม่กำหนดแน่ชัด: Login สมมติเป็น JSON `{ email, password }`, Register เป็น JSON
+`{ email, password, username, full_name }`, และ user ใช้ `{ id, email, username, full_name }`
+แยกสมมติฐานไว้ใน `types/auth.ts` และ `services/authClient.ts` เพื่อปรับหลังยืนยันกับ Backend
+เงื่อนไข Register ของ UI: ชื่อ 1–100 ตัว, username 3–30 ตัว (letters/numbers/underscore),
+รหัสผ่าน 8–128 ตัว และยืนยันตรงกัน; ต้องเทียบกับ validation ของ Backend เมื่อพร้อม
+
+### ตรวจสอบ Auth
+
+```powershell
+npx tsc --noEmit
+npm run lint
+npm run build
+npm run test:auth
+```
+
+Automated tests ครอบคลุม validation, Mock register/login/duplicate/wrong password,
+refresh พร้อมกันและ token rotation, refresh failure, retry limit, logout ขณะ refresh,
+late 401 จาก session เก่า และ network error messages โดยใช้ TypeScript dependency เดิม
+
+ทดสอบ Browser ด้วย Mock: ข้อมูลว่าง, email ผิด, password ไม่ตรง, Register → Login,
+password ผิด, Login ด้วย Enter, workspace, Sign out และ reload บน Private route
+ตรวจที่ 375px, 768px, 1280px รวมการเลื่อน, focus และการแสดง error
+การเชื่อม API จริงและ JWT ที่ Backend เซ็นยังต้องรอ Backend #11
+
+ผลตรวจวันที่ 23 ตุลาคม 2026 (Node 24.19.0): TypeScript, Lint, Build และ `test:auth` ผ่าน 10/10
+Browser Mock flow ผ่าน validation, Register → Login, password ผิด, Enter เพื่อ Login,
+Sign out และ reload จาก Workspace กลับ Login; ตรวจ layout ที่ 375/768/1280px ไม่พบ horizontal overflow
+และ Browser Console ไม่มี error/warning ระหว่าง flow ที่ทดสอบ
 
 ---
 
