@@ -16,7 +16,7 @@ npm run dev
 ```
 
 เปิด URL ที่ Vite แสดงใน terminal (โดยปกติ `http://localhost:5173`)
-หน้าเริ่มต้นแสดง Sidebar และ Workspace / Channel List ของ Issue #4
+หน้าเริ่มต้นแสดง Sidebar ของ Issue #4 และ Chat UI ของ Issue #5
 รันได้โดยไม่ต้องเปิด Backend โดยใช้ Mock Data แยกจาก UI
 
 | คำสั่ง | การใช้งาน |
@@ -43,7 +43,7 @@ src/
 
 Tailwind CSS ใช้สาย **3.4** ผ่าน PostCSS และ `tailwind.config.js` ตาม Blueprint
 ติดตั้ง `lucide-react`, `axios` และ `react-router-dom` ไว้แล้วตาม Issue #2
-ส่วน Auth, Chat UI, WebSocket และ Search จะพัฒนาใน Issue #3, #5, #6 และ #7
+ส่วน Auth, WebSocket และ Search จะพัฒนาใน Issue #3, #6 และ #7
 
 Production ใช้ base path `/` และผลลัพธ์ `dist/` ตาม Dockerfile เดิม
 เมื่อเชื่อม Backend ใน issue ถัดไป ให้ใช้ `/api/v1` และ `/ws` ผ่าน Nginx ของระบบ
@@ -62,7 +62,7 @@ Frontend container เดี่ยวและ Vite server ในขั้น se
 - สร้าง Channel สาธารณะจำลองและเลือกทันที เก็บเฉพาะใน State จน reload ไม่มี API, localStorage หรือ WebSocket
 - ตั้งแต่ 768px แสดง Sidebar ค้าง; ต่ำกว่า 768px ใช้ modal drawer พร้อม focus trap ของ native dialog, Escape, ปุ่มปิด และกดพื้นที่นอกแผงเพื่อปิด การเลือก Channel จะปิดแผง
 - ใช้ Tab / Shift+Tab, Enter / Space กับปุ่ม; Enter ส่งฟอร์ม และ Escape ยกเลิกฟอร์มก่อนปิด drawer
-- เนื้อหาด้านขวาเป็น selection preview เท่านั้น ยังไม่มี ChatArea, ประวัติข้อความ หรือกล่องส่งข้อความ
+- เนื้อหาด้านขวาเชื่อมต่อ ChatArea ของ Issue #5 ผ่าน selection เดิม
 
 ### ตรวจสอบด้วยตนเอง
 
@@ -72,6 +72,30 @@ Frontend container เดี่ยวและ Vite server ในขั้น se
 4. ลองชื่อซ้ำ ชื่อว่าง และชื่อที่มีอักขระไม่รองรับ; Cancel / Escape ต้องไม่สร้าง Channel
 5. สลับ Workspace กลับมา Channel จำลองยังอยู่; reload แล้วข้อมูลต้องกลับเป็นค่าเริ่มต้น
 6. ตรวจที่ 375px, 768px และ 1280px รวมชื่อยาว การเลื่อนรายการ คีย์บอร์ด และเปิด/ปิด drawer
+
+---
+
+## Chat UI — Frontend #5
+
+- `ChatArea.tsx` รับ Channel, messages, currentUserId และ onSend ผ่าน props เพื่อเปลี่ยนแหล่งข้อมูลภายหลังได้
+- `MessageItem.tsx` แสดง Avatar ตัวอักษรย่อ ชื่อ เวลาใน timezone ของ Browser และข้อความที่คงการขึ้นบรรทัดใหม่
+- `MessageInput.tsx` ส่ง callback ด้วย Enter หรือปุ่ม Send; Shift+Enter ขึ้นบรรทัดใหม่ และไม่ส่งระหว่าง IME composition
+- ข้อความว่างหรือมีเฉพาะ whitespace ส่งไม่ได้; ข้อความแสดงเป็น plain text
+- `services/mockMessageData.ts` แยกข้อมูลจำลองและผู้ใช้ตัวอย่างจาก UI; `types/message.ts` เป็น UI model ยังไม่ใช่ API contract
+- `Workspace.tsx` เก็บข้อความแยกตาม Channel ID ใน State โดยใช้ workspace/channel selection เดิม ห้องใหม่เริ่มด้วยข้อความว่าง
+- เปลี่ยน Channel แล้วล้าง draft และเริ่มที่ข้อความล่าสุด; ข้อความที่ส่งแล้วยังอยู่เมื่อสลับห้องกลับมา จน reload
+- ประวัติเลื่อนแยกจาก composer; มี Jump to latest เมื่อเลื่อนขึ้น และเลื่อนลงเมื่อส่งข้อความ
+- ไม่มี API, WebSocket, Auth หรือ Search ใน Issue นี้ และไม่ใช้ localStorage
+
+### ตรวจสอบ Chat UI ด้วยตนเอง
+
+1. เปิด general ตรวจประวัติ Avatar ชื่อ เวลา และเลื่อนอ่านข้อความก่อนหน้า
+2. ส่งด้วย Enter และปุ่ม Send; ทดสอบ Shift+Enter, ข้อความภาษาไทย และข้อความว่าง
+3. สลับ frontend แล้วกลับ general ตรวจว่าข้อความแยกห้องและ draft ไม่ข้ามห้อง
+4. เปิด team-planning หรือ inspiration ตรวจ empty state และลองส่งข้อความแรก
+5. สลับ Design Studio / New Workspace และสร้าง Channel ใหม่ ตรวจ selection และข้อความ
+6. ตรวจที่ 375px, 768px, 1280px รวม drawer, composer, ข้อความยาว และ Browser Console
+7. Reload ตรวจว่าข้อมูลกลับเป็น mock เริ่มต้น
 
 ---
 
