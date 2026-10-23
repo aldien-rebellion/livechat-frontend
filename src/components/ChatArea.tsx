@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ArrowDown, MessageCircle } from 'lucide-react'
 import type { Channel } from '../types/workspace'
 import type { Message } from '../types/message'
@@ -14,10 +14,11 @@ interface ChatAreaProps {
   disabled: boolean
   typingNames: string[]
   mock: boolean
+  jumpTarget?: { id: string } | null
 }
 
 // The parent keys this component by channel so drafts and scroll state cannot cross rooms.
-export default function ChatArea({ channel, messages, currentUserId, onSend, onTyping, disabled, typingNames, mock }: ChatAreaProps) {
+export default function ChatArea({ channel, messages, currentUserId, onSend, onTyping, disabled, typingNames, mock, jumpTarget }: ChatAreaProps) {
   const historyRef = useRef<HTMLDivElement>(null)
   const followLatest = useRef(true)
   const [showLatest, setShowLatest] = useState(false)
@@ -34,6 +35,16 @@ export default function ChatArea({ channel, messages, currentUserId, onSend, onT
     if (history && followLatest.current) history.scrollTop = history.scrollHeight
   }, [messages])
 
+  useEffect(() => {
+    if (!jumpTarget) return
+    const target = Array.from(historyRef.current?.querySelectorAll<HTMLElement>('[data-message-id]') ?? [])
+      .find((element) => element.dataset.messageId === jumpTarget.id)
+    if (!target) return
+    followLatest.current = false
+    target.scrollIntoView({ block: 'center' })
+    target.focus({ preventScroll: true })
+  }, [jumpTarget])
+
   return (
     <section aria-label={`Chat in ${channel.name}`} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="relative flex min-h-0 flex-1 flex-col">
@@ -44,7 +55,7 @@ export default function ChatArea({ channel, messages, currentUserId, onSend, onT
           setShowLatest(!nearBottom)
         }} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-teal-300 sm:px-5">
           {messages.length > 0 ? (
-            <ol aria-label="Messages" aria-live="polite" aria-relevant="additions" className="mx-auto w-full max-w-4xl">{messages.map((message) => <MessageItem key={message.id} message={message} isOwn={message.user_id === currentUserId} />)}</ol>
+            <ol aria-label="Messages" aria-live="polite" aria-relevant="additions" className="mx-auto w-full max-w-4xl">{messages.map((message) => <MessageItem key={message.id} message={message} isOwn={message.user_id === currentUserId} highlighted={message.id === jumpTarget?.id} />)}</ol>
           ) : (
             <div className="flex min-h-full items-center justify-center px-4 py-8 text-center">
               <div className="max-w-md"><MessageCircle aria-hidden="true" className="mx-auto mb-5 h-10 w-10 text-teal-300" /><h2 className="break-words text-xl font-semibold">Start the conversation in #{channel.name}</h2><p className="mt-3 text-sm leading-6 text-slate-400">No messages yet. Be the first to say hello.</p></div>

@@ -2,6 +2,47 @@
 
 เว็บแอปพลิเคชัน Real-Time Live Chat Platform ฝั่งหน้าบ้าน (Client UI) พัฒนาด้วย React + Vite + TypeScript และ Tailwind CSS
 
+## Search Modal — Frontend #7
+
+ปุ่ม **Search messages** ในหน้าห้องแชต หรือ **Ctrl+K** (รองรับ Cmd+K ด้วย) เปิด Search Modal
+ค้นหาข้อความเฉพาะ Channel ปัจจุบันใน Workspace ที่เลือก แสดงผู้ส่ง ข้อความ Channel และเวลาส่ง
+เลือกผลด้วยเมาส์หรือ Enter/Space เพื่อเลื่อน โฟกัส และเน้นข้อความในประวัติแชต
+รองรับ debounce, ยกเลิกคำขอเก่า, Loading / Empty / Error พร้อม Retry, Escape,
+Tab / Shift+Tab ภายใน Modal และคืน focus เมื่อปิด โดยไม่ล้าง draft ของแชต
+
+Backend checkout ยังไม่มี Search API และแผนระบุเพียง
+`GET /api/v1/channels/{id}/search?q={query}` โดยยังไม่ระบุ response schema
+จึงใช้ Mock แบบ opt-in เฉพาะ development และต้องเปิด Mock WebSocket ด้วย:
+
+```powershell
+$env:VITE_AUTH_MODE = 'mock'
+$env:VITE_WS_MODE = 'mock'
+$env:VITE_SEARCH_MODE = 'mock'
+npm run dev
+```
+
+Register แล้ว Login ด้วยบัญชีทดสอบ จากนั้นค้นหา `team` ใน general
+Mock ค้นจากข้อความที่แสดงในแชต รวมข้อความที่ส่ง/รับใหม่ เป็น substring matching
+สูงสุด 30 ผล เรียงใหม่ก่อน ไม่ใช่ PostgreSQL full-text search หรือ `ts_rank`
+UI ระบุ **Mock search · local chat messages only · no Backend API** ชัดเจน
+ค่าเริ่มต้น/production แสดง integration pending โดยไม่ส่ง demo room IDs ไป Backend
+
+`searchService.ts` เตรียม API adapter ที่รับ authenticated Axios client และ response decoder
+ซึ่งต้องยืนยันกับ Backend ก่อนเชื่อมใช้งานจริง รายละเอียดไฟล์ ข้อจำกัด ผลทดสอบ และภาพหน้าจออยู่ใน
+[Issue #7 report](docs/frontend-issue-7.md)
+
+```powershell
+npm ci
+npx tsc --noEmit
+npm run lint
+npm run build
+npm test
+npm run test:search
+```
+
+`npm test` รวม Auth, WebSocket และ Search; Search มี service tests และ Modal tests ผ่าน JSDOM
+พร้อมการตรวจ Browser จริงสำหรับ focus, keyboard และ responsive
+
 ## WebSocket Client — Frontend #6
 
 เพิ่ม WebSocket Context, transport แยกจาก UI, multiplex หลาย Channel, real-time messages,
