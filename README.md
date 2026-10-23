@@ -2,6 +2,82 @@
 
 เว็บแอปพลิเคชัน Real-Time Live Chat Platform ฝั่งหน้าบ้าน (Client UI) พัฒนาด้วย React + Vite + TypeScript และ Tailwind CSS
 
+## Search Modal — Frontend #7
+
+ปุ่ม **Search messages** ในหน้าห้องแชต หรือ **Ctrl+K** (รองรับ Cmd+K ด้วย) เปิด Search Modal
+ค้นหาข้อความเฉพาะ Channel ปัจจุบันใน Workspace ที่เลือก แสดงผู้ส่ง ข้อความ Channel และเวลาส่ง
+เลือกผลด้วยเมาส์หรือ Enter/Space เพื่อเลื่อน โฟกัส และเน้นข้อความในประวัติแชต
+รองรับ debounce, ยกเลิกคำขอเก่า, Loading / Empty / Error พร้อม Retry, Escape,
+Tab / Shift+Tab ภายใน Modal และคืน focus เมื่อปิด โดยไม่ล้าง draft ของแชต
+
+Backend checkout ยังไม่มี Search API และแผนระบุเพียง
+`GET /api/v1/channels/{id}/search?q={query}` โดยยังไม่ระบุ response schema
+จึงใช้ Mock แบบ opt-in เฉพาะ development และต้องเปิด Mock WebSocket ด้วย:
+
+```powershell
+$env:VITE_AUTH_MODE = 'mock'
+$env:VITE_WS_MODE = 'mock'
+$env:VITE_SEARCH_MODE = 'mock'
+npm run dev
+```
+
+Register แล้ว Login ด้วยบัญชีทดสอบ จากนั้นค้นหา `team` ใน general
+Mock ค้นจากข้อความที่แสดงในแชต รวมข้อความที่ส่ง/รับใหม่ เป็น substring matching
+สูงสุด 30 ผล เรียงใหม่ก่อน ไม่ใช่ PostgreSQL full-text search หรือ `ts_rank`
+UI ระบุ **Mock search · local chat messages only · no Backend API** ชัดเจน
+ค่าเริ่มต้น/production แสดง integration pending โดยไม่ส่ง demo room IDs ไป Backend
+
+`searchService.ts` เตรียม API adapter ที่รับ authenticated Axios client และ response decoder
+ซึ่งต้องยืนยันกับ Backend ก่อนเชื่อมใช้งานจริง รายละเอียดไฟล์ ข้อจำกัด ผลทดสอบ และภาพหน้าจออยู่ใน
+[Issue #7 report](docs/frontend-issue-7.md)
+
+```powershell
+npm ci
+npx tsc --noEmit
+npm run lint
+npm run build
+npm test
+npm run test:search
+```
+
+`npm test` รวม Auth, WebSocket และ Search; Search มี service tests และ Modal tests ผ่าน JSDOM
+พร้อมการตรวจ Browser จริงสำหรับ focus, keyboard และ responsive
+
+## WebSocket Client — Frontend #6
+
+เพิ่ม WebSocket Context, transport แยกจาก UI, multiplex หลาย Channel, real-time messages,
+typing indicator, connection state, reconnect พร้อม backoff/jitter และ cleanup ตาม Auth/Workspace
+รายละเอียด contract, ไฟล์, ผลทดสอบ และข้อจำกัดอยู่ใน [Issue #6 report](docs/frontend-issue-6.md)
+หัวข้อ #3/#4/#5 ด้านล่างเป็นบันทึกของ Issue ก่อนหน้า; การส่งข้อความปัจจุบันใช้ Context ของ #6
+
+Backend checkout ปัจจุบันยังไม่มี `app/` หรือ `/ws` จึงทดสอบด้วย Mock เท่านั้น
+โหมด API แสดง integration pending และปิดการส่ง ไม่ส่ง mock workspace/channel IDs ไป Backend
+Native WebSocket adapter เตรียมไว้สำหรับ `/ws?token=...` แต่ต้องยืนยัน inbound decoder และข้อมูลห้องจริงก่อนต่อเข้าหน้าแอป
+
+```powershell
+$env:VITE_AUTH_MODE = 'mock'
+$env:VITE_WS_MODE = 'mock'
+npm run dev
+```
+
+Register บัญชีทดสอบแล้ว Login; เปิด **Mock test controls (no Backend)** เพื่อรับข้อความ,
+แสดง typing หรือจำลอง connection หลุด โดย reconnect อัตโนมัติ
+Mock ใช้ BroadcastChannel แลกข้อความระหว่างแท็บบน origin เดียวกัน ไม่มี Redis หรือ Backend จริง
+เปิดแท็บที่สองแล้ว Register ด้วยคนละชื่อเพื่อทดสอบสองผู้ใช้ได้ (บัญชี Mock แยกต่อแท็บ)
+Mock ทำงานเฉพาะ development และต้อง opt in; production ไม่รวม Mock adapter
+
+```powershell
+npm ci
+npx tsc --noEmit
+npm run lint
+npm run build
+npm test
+```
+
+`npm test` รัน Auth และ WebSocket tests; `npm run test:websocket` รันเฉพาะ WebSocket
+
+---
+
 ## ติดตั้งและใช้งาน Frontend — Frontend #2
 
 ใช้ Node.js **20.19 ขึ้นไปในสาย 20** เพื่อให้ตรงกับ Docker และ CI ของทีม
@@ -16,8 +92,8 @@ npm run dev
 ```
 
 เปิด URL ที่ Vite แสดงใน terminal (โดยปกติ `http://localhost:5173`)
-หน้าเริ่มต้นแสดง Sidebar และ Workspace / Channel List ของ Issue #4
-รันได้โดยไม่ต้องเปิด Backend โดยใช้ Mock Data แยกจาก UI
+หน้าเริ่มต้นนำไป Login ของ Issue #3; เมื่อเข้าสู่ระบบจึงแสดง Sidebar และ Chat UI
+ทดสอบโดยไม่เปิด Backend ได้ด้วย Mock Auth แบบ opt-in ตามหัวข้อ Issue #3 ด้านล่าง
 
 | คำสั่ง | การใช้งาน |
 |---|---|
@@ -36,14 +112,14 @@ src/
 ├── hooks/        # พื้นที่สำหรับ custom hooks
 ├── pages/        # พื้นที่สำหรับหน้าจอ
 ├── services/     # พื้นที่สำหรับ API และ transport
-├── App.tsx       # แสดงหน้า Workspace ของ Issue #4
+├── App.tsx       # React Router พร้อม Guest/Private routes
 ├── main.tsx      # React entry point
 └── index.css     # Tailwind directives
 ```
 
 Tailwind CSS ใช้สาย **3.4** ผ่าน PostCSS และ `tailwind.config.js` ตาม Blueprint
 ติดตั้ง `lucide-react`, `axios` และ `react-router-dom` ไว้แล้วตาม Issue #2
-ส่วน Auth, Chat UI, WebSocket และ Search จะพัฒนาใน Issue #3, #5, #6 และ #7
+ส่วน Auth อยู่ใน Issue #3; WebSocket และ Search เป็นงาน Issue #6 และ #7
 
 Production ใช้ base path `/` และผลลัพธ์ `dist/` ตาม Dockerfile เดิม
 เมื่อเชื่อม Backend ใน issue ถัดไป ให้ใช้ `/api/v1` และ `/ws` ผ่าน Nginx ของระบบ
@@ -62,7 +138,7 @@ Frontend container เดี่ยวและ Vite server ในขั้น se
 - สร้าง Channel สาธารณะจำลองและเลือกทันที เก็บเฉพาะใน State จน reload ไม่มี API, localStorage หรือ WebSocket
 - ตั้งแต่ 768px แสดง Sidebar ค้าง; ต่ำกว่า 768px ใช้ modal drawer พร้อม focus trap ของ native dialog, Escape, ปุ่มปิด และกดพื้นที่นอกแผงเพื่อปิด การเลือก Channel จะปิดแผง
 - ใช้ Tab / Shift+Tab, Enter / Space กับปุ่ม; Enter ส่งฟอร์ม และ Escape ยกเลิกฟอร์มก่อนปิด drawer
-- เนื้อหาด้านขวาเป็น selection preview เท่านั้น ยังไม่มี ChatArea, ประวัติข้อความ หรือกล่องส่งข้อความ
+- เนื้อหาด้านขวาเชื่อมต่อ ChatArea ของ Issue #5 ผ่าน selection เดิม
 
 ### ตรวจสอบด้วยตนเอง
 
@@ -72,6 +148,102 @@ Frontend container เดี่ยวและ Vite server ในขั้น se
 4. ลองชื่อซ้ำ ชื่อว่าง และชื่อที่มีอักขระไม่รองรับ; Cancel / Escape ต้องไม่สร้าง Channel
 5. สลับ Workspace กลับมา Channel จำลองยังอยู่; reload แล้วข้อมูลต้องกลับเป็นค่าเริ่มต้น
 6. ตรวจที่ 375px, 768px และ 1280px รวมชื่อยาว การเลื่อนรายการ คีย์บอร์ด และเปิด/ปิด drawer
+
+---
+
+## Chat UI — Frontend #5
+
+- `ChatArea.tsx` รับ Channel, messages, currentUserId และ onSend ผ่าน props เพื่อเปลี่ยนแหล่งข้อมูลภายหลังได้
+- `MessageItem.tsx` แสดง Avatar ตัวอักษรย่อ ชื่อ เวลาใน timezone ของ Browser และข้อความที่คงการขึ้นบรรทัดใหม่
+- `MessageInput.tsx` ส่ง callback ด้วย Enter หรือปุ่ม Send; Shift+Enter ขึ้นบรรทัดใหม่ และไม่ส่งระหว่าง IME composition
+- ข้อความว่างหรือมีเฉพาะ whitespace ส่งไม่ได้; ข้อความแสดงเป็น plain text
+- `services/mockMessageData.ts` แยกข้อมูลจำลองและผู้ใช้ตัวอย่างจาก UI; `types/message.ts` เป็น UI model ยังไม่ใช่ API contract
+- `Workspace.tsx` เก็บข้อความแยกตาม Channel ID ใน State โดยใช้ workspace/channel selection เดิม ห้องใหม่เริ่มด้วยข้อความว่าง
+- เปลี่ยน Channel แล้วล้าง draft และเริ่มที่ข้อความล่าสุด; ข้อความที่ส่งแล้วยังอยู่เมื่อสลับห้องกลับมา จน reload
+- ประวัติเลื่อนแยกจาก composer; มี Jump to latest เมื่อเลื่อนขึ้น และเลื่อนลงเมื่อส่งข้อความ
+- ไม่มี API, WebSocket, Auth หรือ Search ใน Issue นี้ และไม่ใช้ localStorage
+
+### ตรวจสอบ Chat UI ด้วยตนเอง
+
+1. เปิด general ตรวจประวัติ Avatar ชื่อ เวลา และเลื่อนอ่านข้อความก่อนหน้า
+2. ส่งด้วย Enter และปุ่ม Send; ทดสอบ Shift+Enter, ข้อความภาษาไทย และข้อความว่าง
+3. สลับ frontend แล้วกลับ general ตรวจว่าข้อความแยกห้องและ draft ไม่ข้ามห้อง
+4. เปิด team-planning หรือ inspiration ตรวจ empty state และลองส่งข้อความแรก
+5. สลับ Design Studio / New Workspace และสร้าง Channel ใหม่ ตรวจ selection และข้อความ
+6. ตรวจที่ 375px, 768px, 1280px รวม drawer, composer, ข้อความยาว และ Browser Console
+7. Reload ตรวจว่าข้อมูลกลับเป็น mock เริ่มต้น
+
+---
+
+## Login / Register และ JWT State — Frontend #3
+
+อ่านข้อกำหนดจาก `plan/team_issue_specifications.md`, Roadmap และ Blueprint ของทั้งสอง repo แล้ว
+Issue นี้รวม Axios auto-refresh และขึ้นกับ Backend #11 ซึ่ง checkout ปัจจุบันยังไม่มี `app/`
+
+- `/login`, `/register` เป็น Guest routes; `/workspace` เป็น Private route; `/` และ URL ที่ไม่รู้จักนำไป route ที่เหมาะกับสถานะ Auth
+- หน้า Auth มี validation, inline errors พร้อม focus ช่องแรกที่ผิด, server/network errors, loading และป้องกัน submit ซ้ำ
+- Register สำเร็จนำไป Login พร้อมข้อความยืนยัน ไม่สมมติว่า Register คืน token
+- `AuthProvider` / `useAuth` เปิดให้ใช้ session (user, access token และ refresh token) ผ่าน React Context
+- Token อยู่ในหน่วยความจำเท่านั้น ไม่มี localStorage, sessionStorage หรือ cookie; reload แล้วต้อง Login ใหม่
+- `authClient.ts` แยก transport ของ Auth ออกจาก `api` ที่แนบ Bearer token; ใช้ `authService.api` สำหรับ protected API ในงานถัดไป
+- เมื่อ protected API ตอบ 401 จะใช้ refresh token, รวมคำขอ refresh ที่เข้ามาพร้อมกัน, อัปเดต token และ retry ครั้งเดียว
+- Refresh ล้มเหลวหรือ retry ยังได้ 401 จะล้าง session และกลับ Login; การ Sign out ระหว่าง refresh จะไม่คืน session เก่า
+- Sign out ล้าง state ฝั่ง Client เท่านั้น แผนยังไม่มี logout/revoke endpoint
+- Sidebar/Chat ยังคงเป็นข้อมูลจำลองของ #4/#5 พร้อมป้าย Demo chat ไม่ได้เชื่อม WebSocket หรือ Search
+
+### เปิด Mock Auth สำหรับพัฒนา
+
+Mock ต้องเปิดเอง และใช้งานเฉพาะ Vite development server:
+
+```powershell
+$env:VITE_AUTH_MODE = 'mock'
+npm run dev
+```
+
+เข้า `/register` และสร้างบัญชีทดสอบก่อน Login ไม่มีบัญชีหรือ credentials ที่ seed ไว้
+Mock อยู่ใน `services/mockAuthAdapter.ts` ใช้ Axios adapter โดยไม่ส่ง network request
+ข้อมูลบัญชีและ token จำลองหายเมื่อ reload; token ขึ้นต้น `mock-only-` และไม่ใช่ JWT จริง
+Production build ตัด Mock ออก แม้ตั้ง `VITE_AUTH_MODE=mock`
+กลับ API จริงโดยตั้ง `VITE_AUTH_MODE=api` หรือเอาตัวแปรนี้ออก แล้ว restart Vite
+
+### เตรียมเชื่อม Backend #11
+
+คัดลอก `.env.example` ไป `.env.local` แล้วตั้ง `VITE_API_BASE_URL`:
+
+- ค่าเริ่มต้น `/api/v1` สำหรับ Nginx ที่ proxy ไป Backend บน host เดียวกัน
+- ถ้ารัน Vite แยก Backend ให้ใช้ `http://localhost:8000/api/v1` และ Backend ต้องรองรับ CORS ของ origin ที่ใช้งาน
+- ค่า `VITE_*` เป็น public build configuration ห้ามใส่ secrets
+
+ตามแผน Login ส่งกลับ `{ access_token, refresh_token, token_type, user }`
+Refresh ส่ง `{ refresh_token }` และรับ `{ access_token }` หรือ `{ access_token, refresh_token }` หาก rotate
+ส่วนที่แผนยังไม่กำหนดแน่ชัด: Login สมมติเป็น JSON `{ email, password }`, Register เป็น JSON
+`{ email, password, username, full_name }`, และ user ใช้ `{ id, email, username, full_name }`
+แยกสมมติฐานไว้ใน `types/auth.ts` และ `services/authClient.ts` เพื่อปรับหลังยืนยันกับ Backend
+เงื่อนไข Register ของ UI: ชื่อ 1–100 ตัว, username 3–30 ตัว (letters/numbers/underscore),
+รหัสผ่าน 8–128 ตัว และยืนยันตรงกัน; ต้องเทียบกับ validation ของ Backend เมื่อพร้อม
+
+### ตรวจสอบ Auth
+
+```powershell
+npx tsc --noEmit
+npm run lint
+npm run build
+npm run test:auth
+```
+
+Automated tests ครอบคลุม validation, Mock register/login/duplicate/wrong password,
+refresh พร้อมกันและ token rotation, refresh failure, retry limit, logout ขณะ refresh,
+late 401 จาก session เก่า และ network error messages โดยใช้ TypeScript dependency เดิม
+
+ทดสอบ Browser ด้วย Mock: ข้อมูลว่าง, email ผิด, password ไม่ตรง, Register → Login,
+password ผิด, Login ด้วย Enter, workspace, Sign out และ reload บน Private route
+ตรวจที่ 375px, 768px, 1280px รวมการเลื่อน, focus และการแสดง error
+การเชื่อม API จริงและ JWT ที่ Backend เซ็นยังต้องรอ Backend #11
+
+ผลตรวจวันที่ 23 ตุลาคม 2026 (Node 24.19.0): TypeScript, Lint, Build และ `test:auth` ผ่าน 10/10
+Browser Mock flow ผ่าน validation, Register → Login, password ผิด, Enter เพื่อ Login,
+Sign out และ reload จาก Workspace กลับ Login; ตรวจ layout ที่ 375/768/1280px ไม่พบ horizontal overflow
+และ Browser Console ไม่มี error/warning ระหว่าง flow ที่ทดสอบ
 
 ---
 
