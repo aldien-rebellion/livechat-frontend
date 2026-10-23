@@ -2,6 +2,41 @@
 
 เว็บแอปพลิเคชัน Real-Time Live Chat Platform ฝั่งหน้าบ้าน (Client UI) พัฒนาด้วย React + Vite + TypeScript และ Tailwind CSS
 
+## WebSocket Client — Frontend #6
+
+เพิ่ม WebSocket Context, transport แยกจาก UI, multiplex หลาย Channel, real-time messages,
+typing indicator, connection state, reconnect พร้อม backoff/jitter และ cleanup ตาม Auth/Workspace
+รายละเอียด contract, ไฟล์, ผลทดสอบ และข้อจำกัดอยู่ใน [Issue #6 report](docs/frontend-issue-6.md)
+หัวข้อ #3/#4/#5 ด้านล่างเป็นบันทึกของ Issue ก่อนหน้า; การส่งข้อความปัจจุบันใช้ Context ของ #6
+
+Backend checkout ปัจจุบันยังไม่มี `app/` หรือ `/ws` จึงทดสอบด้วย Mock เท่านั้น
+โหมด API แสดง integration pending และปิดการส่ง ไม่ส่ง mock workspace/channel IDs ไป Backend
+Native WebSocket adapter เตรียมไว้สำหรับ `/ws?token=...` แต่ต้องยืนยัน inbound decoder และข้อมูลห้องจริงก่อนต่อเข้าหน้าแอป
+
+```powershell
+$env:VITE_AUTH_MODE = 'mock'
+$env:VITE_WS_MODE = 'mock'
+npm run dev
+```
+
+Register บัญชีทดสอบแล้ว Login; เปิด **Mock test controls (no Backend)** เพื่อรับข้อความ,
+แสดง typing หรือจำลอง connection หลุด โดย reconnect อัตโนมัติ
+Mock ใช้ BroadcastChannel แลกข้อความระหว่างแท็บบน origin เดียวกัน ไม่มี Redis หรือ Backend จริง
+เปิดแท็บที่สองแล้ว Register ด้วยคนละชื่อเพื่อทดสอบสองผู้ใช้ได้ (บัญชี Mock แยกต่อแท็บ)
+Mock ทำงานเฉพาะ development และต้อง opt in; production ไม่รวม Mock adapter
+
+```powershell
+npm ci
+npx tsc --noEmit
+npm run lint
+npm run build
+npm test
+```
+
+`npm test` รัน Auth และ WebSocket tests; `npm run test:websocket` รันเฉพาะ WebSocket
+
+---
+
 ## ติดตั้งและใช้งาน Frontend — Frontend #2
 
 ใช้ Node.js **20.19 ขึ้นไปในสาย 20** เพื่อให้ตรงกับ Docker และ CI ของทีม

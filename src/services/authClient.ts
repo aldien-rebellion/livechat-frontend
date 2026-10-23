@@ -77,6 +77,7 @@ export function createAuthClient(baseURL: string, adapter?: AxiosAdapter) {
 
   return {
     api,
+    refresh,
     getSession: () => session,
     subscribe(listener: (value: AuthSession | null) => void) { listeners.add(listener); return () => { listeners.delete(listener) } },
     login: (input: LoginInput) => authenticate('/auth/login', input),

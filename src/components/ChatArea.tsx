@@ -9,11 +9,15 @@ interface ChatAreaProps {
   channel: Channel
   messages: Message[]
   currentUserId: string
-  onSend: (content: string) => void
+  onSend: (content: string) => boolean
+  onTyping: () => void
+  disabled: boolean
+  typingNames: string[]
+  mock: boolean
 }
 
 // The parent keys this component by channel so drafts and scroll state cannot cross rooms.
-export default function ChatArea({ channel, messages, currentUserId, onSend }: ChatAreaProps) {
+export default function ChatArea({ channel, messages, currentUserId, onSend, onTyping, disabled, typingNames, mock }: ChatAreaProps) {
   const historyRef = useRef<HTMLDivElement>(null)
   const followLatest = useRef(true)
   const [showLatest, setShowLatest] = useState(false)
@@ -49,7 +53,8 @@ export default function ChatArea({ channel, messages, currentUserId, onSend }: C
         </div>
         {showLatest && <button type="button" onClick={scrollToLatest} className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-slate-600 bg-slate-800 px-4 py-3 text-sm shadow-lg hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300"><ArrowDown aria-hidden="true" className="h-4 w-4" />Jump to latest</button>}
       </div>
-      <MessageInput channelName={channel.name} onSend={(content) => { followLatest.current = true; setShowLatest(false); onSend(content) }} />
+      <p role="status" aria-live="polite" className="min-h-7 px-4 text-sm text-teal-200 sm:px-8">{typingNames.length > 0 ? `${typingNames.join(', ')} กำลังพิมพ์...` : ''}</p>
+      <MessageInput channelName={channel.name} disabled={disabled} onTyping={onTyping} mock={mock} onSend={(content) => { followLatest.current = true; setShowLatest(false); return onSend(content) }} />
     </section>
   )
 }
