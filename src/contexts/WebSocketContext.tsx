@@ -12,37 +12,30 @@ export default function WebSocketProvider({ workspaceId, channels, children }: {
   children: ReactNode
 }) {
   const { session } = useAuth()
-  const [client, setClient] = useState<{ adapter: ReturnType<typeof createMockWebSocketAdapter>; connection: ChatConnection } | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
+  const [client] = useState(() => {
     const adapter = createMockWebSocketAdapter()
     const connection = new ChatConnection(adapter.factory, { initialMessages: adapter.initialMessages })
-    if (!cancelled) {
-      setClient({ adapter, connection })
-    }
-    return () => {
-      cancelled = true
-      connection.dispose()
-    }
-  }, [])
+    return { adapter, connection }
+  })
 
   useEffect(() => {
-    client?.connection.setScope(session && workspaceId ? { session, workspaceId, channels } : null)
+    return () => {
+      client.connection.dispose()
+    }
+  }, [client])
+
+  useEffect(() => {
+    client.connection.setScope(session && workspaceId ? { session, workspaceId, channels } : null)
   }, [client, session, workspaceId, channels])
 
   return (
     <WebSocketContext
-      value={
-        client
-          ? {
-              connection: client.connection,
-              mock: true,
-              simulateDisconnect: client.adapter.disconnect,
-              simulatePeer: client.adapter.peer,
-            }
-          : null
-      }
+      value={{
+        connection: client.connection,
+        mock: true,
+        simulateDisconnect: client.adapter.disconnect,
+        simulatePeer: client.adapter.peer,
+      }}
     >
       {children}
     </WebSocketContext>
