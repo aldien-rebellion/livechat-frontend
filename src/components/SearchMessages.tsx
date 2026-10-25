@@ -4,9 +4,7 @@ import type { Channel } from '../types/workspace'
 import type { Message } from '../types/message'
 import type { SearchService } from '../types/search'
 import SearchModal from './SearchModal'
-
-const mockModule = import.meta.env.DEV && import.meta.env.VITE_SEARCH_MODE === 'mock'
-  ? import('../services/mockSearchService') : undefined
+import { createMockSearchService } from '../services/mockSearchService'
 
 export default function SearchMessages({ channel, messages, mockChat, onSelect }: {
   channel: Channel; messages: Message[]; mockChat: boolean; onSelect: (message: Message) => void
@@ -16,11 +14,11 @@ export default function SearchMessages({ channel, messages, mockChat, onSelect }
   const messagesRef = useRef(messages)
   useEffect(() => { messagesRef.current = messages }, [messages])
   useEffect(() => {
-    let cancelled = false
-    if (mockChat) void mockModule?.then(({ createMockSearchService }) => {
-      if (!cancelled) setService(createMockSearchService(() => messagesRef.current))
-    })
-    return () => { cancelled = true }
+    if (mockChat) {
+      setService(createMockSearchService(() => messagesRef.current))
+    } else {
+      setService(null)
+    }
   }, [mockChat])
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
