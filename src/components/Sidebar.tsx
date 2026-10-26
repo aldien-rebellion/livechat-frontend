@@ -27,7 +27,7 @@ export default function Sidebar(props: SidebarProps) {
           <ChannelList key={props.selectedWorkspaceId} channels={props.channels} selectedChannelId={props.selectedChannelId} onSelectChannel={props.onSelectChannel} onCreateChannel={props.onCreateChannel} />
         ) : <p className="px-3 text-sm text-slate-400">Select a workspace to view channels.</p>}
       </div>
-      <p className="border-t border-slate-800 px-6 py-4 text-xs leading-relaxed text-slate-400"><span className="font-semibold text-amber-200">Mock workspace preview</span><br />Changes stay in this tab until reload.</p>
+      <p className="border-t border-slate-800 px-6 py-4 text-xs leading-relaxed text-slate-400"><span className="font-semibold text-teal-300">Live Chat Platform</span><br />Real-time WebSocket &amp; Redis Pub/Sub</p>
     </div>
   )
 }
