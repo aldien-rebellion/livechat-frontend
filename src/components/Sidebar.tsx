@@ -10,7 +10,8 @@ interface SidebarProps {
   selectedChannelId: string | null
   onSelectWorkspace: (workspaceId: string) => void
   onSelectChannel: (channelId: string) => void
-  onCreateChannel: (name: string) => void
+  onCreateChannel: (name: string) => void | Promise<void>
+  mock?: boolean
 }
 
 export default function Sidebar(props: SidebarProps) {
@@ -24,7 +25,7 @@ export default function Sidebar(props: SidebarProps) {
         <WorkspaceList workspaces={props.workspaces} selectedWorkspaceId={props.selectedWorkspaceId} onSelectWorkspace={props.onSelectWorkspace} />
         <div className="border-t border-slate-800" />
         {props.selectedWorkspaceId ? (
-          <ChannelList key={props.selectedWorkspaceId} channels={props.channels} selectedChannelId={props.selectedChannelId} onSelectChannel={props.onSelectChannel} onCreateChannel={props.onCreateChannel} />
+          <ChannelList key={props.selectedWorkspaceId} channels={props.channels} selectedChannelId={props.selectedChannelId} onSelectChannel={props.onSelectChannel} onCreateChannel={props.onCreateChannel} mock={props.mock} />
         ) : <p className="px-3 text-sm text-slate-400">Select a workspace to view channels.</p>}
       </div>
       <p className="border-t border-slate-800 px-6 py-4 text-xs leading-relaxed text-slate-400"><span className="font-semibold text-teal-300">Live Chat Platform</span><br />Real-time WebSocket &amp; Redis Pub/Sub</p>
