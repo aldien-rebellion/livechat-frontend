@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { authService } from '../services/authService'
-import { createChannelService, mergeChannels } from '../services/channelService'
+import { createChannelService, mergeChannels, replaceWorkspaceChannels } from '../services/channelService'
 import { mockChannels } from '../services/mockWorkspaceData'
 import type { AuthSession } from '../types/auth'
 import type { Channel } from '../types/workspace'
@@ -8,8 +8,10 @@ import type { Channel } from '../types/workspace'
 const service = createChannelService(authService.api)
 
 export function useWorkspaceChannels(session: AuthSession | null, workspaceId: string | null, mock: boolean) {
-  const [channels, setChannels] = useState<Channel[]>(() => [...mockChannels])
+  const [channels, setChannels] = useState<Channel[]>(() => mock ? [...mockChannels] : [])
   const [syncError, setSyncError] = useState('')
+  const revision = useRef(0)
+  const mutating = useRef(0)
 
   useEffect(() => {
     if (mock || !session || !workspaceId) return
@@ -17,16 +19,17 @@ export function useWorkspaceChannels(session: AuthSession | null, workspaceId: s
     const controller = new AbortController()
     let pending = false
     async function refresh() {
-      if (pending || controller.signal.aborted) return
+      if (pending || controller.signal.aborted || mutating.current) return
       pending = true
+      const started = revision.current
       try {
         const incoming = await service.list(targetWorkspaceId, controller.signal)
-        if (!controller.signal.aborted) {
-          setChannels((previous) => mergeChannels(previous, incoming))
+        if (!controller.signal.aborted && started === revision.current) {
+          setChannels((previous) => replaceWorkspaceChannels(previous, incoming, targetWorkspaceId))
           setSyncError('')
         }
       } catch {
-        if (!controller.signal.aborted) setSyncError('Unable to refresh channels. Retrying…')
+        if (!controller.signal.aborted && started === revision.current) setSyncError('Unable to refresh channels. Retrying…')
       } finally { pending = false }
     }
     void refresh()
@@ -41,12 +44,25 @@ export function useWorkspaceChannels(session: AuthSession | null, workspaceId: s
 
   async function createChannel(targetWorkspaceId: string, name: string): Promise<Channel> {
     if (!session) throw new Error('Please sign in again.')
-    const channel = mock
-      ? { id: crypto.randomUUID(), workspace_id: targetWorkspaceId, name, is_private: false }
-      : await service.create(targetWorkspaceId, name, session.user.id)
-    setChannels((previous) => mergeChannels(previous, [channel]))
-    return channel
+    revision.current++
+    mutating.current++
+    try {
+      const channel = mock
+        ? { id: crypto.randomUUID(), workspace_id: targetWorkspaceId, name, is_private: false }
+        : await service.create(targetWorkspaceId, name)
+      setChannels((previous) => mergeChannels(previous, [channel]))
+      return channel
+    } finally { revision.current++; mutating.current-- }
   }
 
-  return { channels, createChannel, syncError }
+  async function deleteChannel(channel: Channel): Promise<void> {
+    revision.current++
+    mutating.current++
+    try {
+      if (!mock) await service.remove(channel.workspace_id, channel.id)
+      setChannels((previous) => previous.filter((item) => item.id !== channel.id || item.workspace_id !== channel.workspace_id))
+    } finally { revision.current++; mutating.current-- }
+  }
+
+  return { channels, createChannel, deleteChannel, syncError }
 }

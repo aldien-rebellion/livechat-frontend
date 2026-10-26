@@ -11,7 +11,7 @@ function decodeChannel(value: unknown, workspaceId: string): Channel {
   return channel as Channel
 }
 
-export function createChannelService(api: Pick<AxiosInstance, 'get' | 'post'>) {
+export function createChannelService(api: Pick<AxiosInstance, 'get' | 'post' | 'delete'>) {
   const path = (workspaceId: string) => `/workspaces/${encodeURIComponent(workspaceId)}/channels`
   return {
     async list(workspaceId: string, signal: AbortSignal): Promise<Channel[]> {
@@ -19,11 +19,21 @@ export function createChannelService(api: Pick<AxiosInstance, 'get' | 'post'>) {
       if (!Array.isArray(data)) throw new Error('Invalid channel response.')
       return data.map((value) => decodeChannel(value, workspaceId))
     },
-    async create(workspaceId: string, name: string, userId: string): Promise<Channel> {
-      const { data } = await api.post<unknown>(path(workspaceId), { name, user_id: userId })
+    async create(workspaceId: string, name: string): Promise<Channel> {
+      const { data } = await api.post<unknown>(path(workspaceId), { name })
       return decodeChannel(data, workspaceId)
     },
+    async remove(workspaceId: string, channelId: string): Promise<void> {
+      await api.delete(`${path(workspaceId)}/${encodeURIComponent(channelId)}`)
+    },
   }
+}
+
+export function replaceWorkspaceChannels(current: Channel[], incoming: Channel[], workspaceId: string): Channel[] {
+  const existing = current.filter((channel) => channel.workspace_id === workspaceId)
+  if (existing.length === incoming.length && existing.every((channel, index) =>
+    channel.id === incoming[index].id && channel.name === incoming[index].name && channel.is_private === incoming[index].is_private)) return current
+  return [...current.filter((channel) => channel.workspace_id !== workspaceId), ...incoming]
 }
 
 const legacyChannelRefs = new Set(['general', 'frontend', 'planning', 'reviews', 'inspiration'])

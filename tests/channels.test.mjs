@@ -28,6 +28,7 @@ for (const [name, sourcePath] of [
 await writeFile(resolve(directory, 'authService.mjs'), `export const authService = { api: {
   get: (...args) => globalThis.channelTestApi.get(...args),
   post: (...args) => globalThis.channelTestApi.post(...args),
+  delete: (...args) => globalThis.channelTestApi.delete(...args),
 } }`)
 const load = (name) => import(pathToFileURL(resolve(directory, `${name}.mjs`)).href)
 const { createChannelService, mergeChannels } = await load('channelService')
@@ -69,9 +70,9 @@ test('independent clients and a reloaded client discover the same server channel
   const friend = createChannelService(api)
   const signal = new AbortController().signal
   assert.deepEqual(await friend.list('team', signal), [])
-  const created = await creator.create('team', 'project-updates', '12')
+  const created = await creator.create('team', 'project-updates')
   assert.equal(created.id, '100')
-  assert.deepEqual(api.calls.at(-1).payload, { name: 'project-updates', user_id: '12' })
+  assert.deepEqual(api.calls.at(-1).payload, { name: 'project-updates' })
   assert.deepEqual(await friend.list('team', signal), [created])
   assert.deepEqual(await createChannelService(api).list('team', signal), [created])
   assert.deepEqual(await friend.list('design', signal), [])
@@ -86,7 +87,7 @@ test('malformed or cross-workspace server responses never become visible channel
   }
   const failure = new Error('Server unavailable')
   const service = createChannelService({ post: async () => { throw failure } })
-  await assert.rejects(service.create('team', 'new-room', '12'), (error) => error === failure)
+  await assert.rejects(service.create('team', 'new-room'), (error) => error === failure)
 })
 
 test('server polling keeps legacy references and does not duplicate rooms or mix workspaces', () => {
@@ -136,7 +137,7 @@ test('an already open browser discovers a friend-created channel on its next pol
   const api = sharedServer()
   const browser = await hookSetup(t, api)
   assert.equal(browser.read().channels.some((item) => item.name === 'new-room'), false)
-  const created = await createChannelService(api).create('team', 'new-room', '13')
+  const created = await createChannelService(api).create('team', 'new-room')
   await browser.tick()
   assert.deepEqual(browser.read().channels.find((item) => item.name === 'new-room'), created)
   await browser.tick()

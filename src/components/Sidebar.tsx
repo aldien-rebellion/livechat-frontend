@@ -12,6 +12,10 @@ interface SidebarProps {
   onSelectChannel: (channelId: string) => void
   onCreateChannel: (name: string) => void | Promise<void>
   mock?: boolean
+  canManage?: boolean
+  onCreateWorkspace?: () => void
+  onDeleteWorkspace?: (workspace: Workspace) => void
+  onDeleteChannel?: (channel: Channel) => void
 }
 
 export default function Sidebar(props: SidebarProps) {
@@ -22,10 +26,10 @@ export default function Sidebar(props: SidebarProps) {
         <span className="text-lg font-bold tracking-tight">Live Chat<span className="block text-xs font-normal tracking-normal text-slate-400">Your team, connected.</span></span>
       </div>
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4">
-        <WorkspaceList workspaces={props.workspaces} selectedWorkspaceId={props.selectedWorkspaceId} onSelectWorkspace={props.onSelectWorkspace} />
+        <WorkspaceList workspaces={props.workspaces} selectedWorkspaceId={props.selectedWorkspaceId} onSelectWorkspace={props.onSelectWorkspace} onCreateWorkspace={props.onCreateWorkspace} onDeleteWorkspace={props.onDeleteWorkspace} />
         <div className="border-t border-slate-800" />
         {props.selectedWorkspaceId ? (
-          <ChannelList key={props.selectedWorkspaceId} channels={props.channels} selectedChannelId={props.selectedChannelId} onSelectChannel={props.onSelectChannel} onCreateChannel={props.onCreateChannel} mock={props.mock} />
+          <ChannelList key={props.selectedWorkspaceId} channels={props.channels} selectedChannelId={props.selectedChannelId} onSelectChannel={props.onSelectChannel} onCreateChannel={props.onCreateChannel} mock={props.mock} canManage={props.canManage} onDeleteChannel={props.onDeleteChannel} />
         ) : <p className="px-3 text-sm text-slate-400">Select a workspace to view channels.</p>}
       </div>
       <p className="border-t border-slate-800 px-6 py-4 text-xs leading-relaxed text-slate-400"><span className="font-semibold text-teal-300">Live Chat Platform</span><br />Real-time WebSocket &amp; Redis Pub/Sub</p>

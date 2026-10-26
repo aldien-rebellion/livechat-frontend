@@ -35,6 +35,9 @@ export function decodeLiveEvent(data: unknown, workspaceId: string): ChatEvent |
   if (!parsed || typeof parsed !== 'object') return null
   const event = parsed as Record<string, unknown>
   const targetWs = (event.workspaceId as string) || workspaceId
+  if (event.type === 'error' && typeof event.message === 'string') {
+    return { type: 'error', workspaceId: targetWs, message: event.message }
+  }
 
   if (event.type === 'user_typing') {
     if (!event.channelId || !event.userId) return null

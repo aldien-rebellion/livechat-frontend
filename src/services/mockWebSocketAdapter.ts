@@ -30,7 +30,7 @@ export function createMockWebSocketAdapter() {
     const bus = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(`livechat-issue6-mock:${workspaceId}`)
     const receive = (data: unknown) => {
       const event = decodeMockEvent(data)
-      if (!closed && opened && event && event.workspaceId === workspaceId && subscriptions.has(event.type === 'new_message' ? event.message.channel_id : event.channelId)) handlers.event(event)
+      if (!closed && opened && event && event.type !== 'error' && event.workspaceId === workspaceId && subscriptions.has(event.type === 'new_message' ? event.message.channel_id : event.channelId)) handlers.event(event)
     }
     if (bus) bus.onmessage = ({ data }) => receive(data)
     function publish(event: ChatEvent) { receive(event); bus?.postMessage(event) }
