@@ -39,6 +39,11 @@ export class ChatConnection {
 
   getSnapshot = () => this.snapshot
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
+
+  setMessages(messages: ChannelMessages) {
+    this.update({ messages: { ...this.snapshot.messages, ...messages } })
+  }
+
   private update(value: Partial<Snapshot>) {
     this.snapshot = { ...this.snapshot, ...value }
     this.listeners.forEach((listener) => listener())
@@ -132,16 +137,22 @@ export class ChatConnection {
       if (this.write({ action: 'subscribe', channel_id: channel.id })) this.subscribed.add(channel.id)
     }
   }
-  private allowed(channelId: string) {
-    return this.subscribed.has(channelId) && this.scope?.channels.some((channel) => channel.id === channelId && channel.workspace_id === this.scope?.workspaceId)
-  }
   sendMessage(workspaceId: string, channelId: string, content: string) {
-    if (workspaceId !== this.scope?.workspaceId || !this.allowed(channelId) || !content.trim()) return false
-    // No offline queue, optimistic copy or replay: delivery acknowledgements are unspecified.
+    if (workspaceId !== this.scope?.workspaceId || !content.trim()) return false
+    const channelValid = this.scope?.channels.some((channel) => channel.id === channelId && channel.workspace_id === this.scope?.workspaceId)
+    if (!channelValid) return false
+    if (!this.subscribed.has(channelId)) {
+      if (this.write({ action: 'subscribe', channel_id: channelId })) this.subscribed.add(channelId)
+    }
     return this.write({ action: 'send_message', channel_id: channelId, content: content.trim() })
   }
   sendTyping(workspaceId: string, channelId: string) {
-    if (workspaceId !== this.scope?.workspaceId || !this.allowed(channelId)) return
+    if (workspaceId !== this.scope?.workspaceId) return
+    const channelValid = this.scope?.channels.some((channel) => channel.id === channelId && channel.workspace_id === this.scope?.workspaceId)
+    if (!channelValid) return
+    if (!this.subscribed.has(channelId)) {
+      if (this.write({ action: 'subscribe', channel_id: channelId })) this.subscribed.add(channelId)
+    }
     const now = Date.now()
     if (now - (this.lastTyping.get(channelId) ?? 0) < 1500) return
     if (this.write({ action: 'typing', channel_id: channelId })) this.lastTyping.set(channelId, now)
@@ -149,7 +160,9 @@ export class ChatConnection {
   private receive(event: ChatEvent) {
     if (event.workspaceId !== this.scope?.workspaceId) return
     const channelId = event.type === 'new_message' ? event.message.channel_id : event.channelId
-    if (!this.allowed(channelId)) return
+    const channelValid = this.scope?.channels.some((channel) => channel.id === channelId && channel.workspace_id === this.scope?.workspaceId)
+    if (!channelValid) return
+    this.subscribed.add(channelId)
     if (event.type === 'new_message') {
       const messages = this.snapshot.messages[channelId] ?? []
       if (messages.some((message) => message.id === event.message.id)) return
