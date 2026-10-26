@@ -13,8 +13,11 @@ export default function LiveChat({ channel }: { channel: Channel }) {
   const [jumpTarget, setJumpTarget] = useState<{ id: string } | null>(null)
   return <>
     <div className="border-b border-slate-800 px-4 py-2 text-sm sm:px-8">
-      <p role="status">{socket.mock ? `Mock WebSocket · ${socket.state}` : 'Disconnected · Backend integration pending'}</p>
-      {!socket.mock && <p className="mt-1 text-xs text-amber-200">การเชื่อมต่อ Backend ยังไม่พร้อมใช้งาน ขณะนี้ Workspace และ Channel เป็นข้อมูลตัวอย่าง</p>}
+      <p role="status">
+        {socket.mock
+          ? `Mock WebSocket · ${socket.state}`
+          : (connected ? 'Live WebSocket · Connected' : `Live WebSocket · ${socket.state}`)}
+      </p>
       {socket.error && <p role="alert" className="mt-1 text-amber-200">{socket.error}</p>}
       <SearchMessages channel={channel} messages={socket.messages[channel.id] ?? []} mockChat={socket.mock ?? false}
         onSelect={(message) => setJumpTarget({ id: message.id })} />

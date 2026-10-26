@@ -79,7 +79,7 @@ export default function Workspace() {
       </dialog>
       <main id="workspace-content" tabIndex={-1} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden focus:outline-none">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 px-4 py-2 text-sm sm:px-8">
-          <span className="min-w-0 break-all text-slate-300">{session?.user.full_name || session?.user.username} · {isMockAuth ? 'Mock auth / demo chat' : 'Demo chat'}</span>
+          <span className="min-w-0 break-all text-slate-300">{session?.user.full_name || session?.user.username} · {isMockAuth ? 'Mock auth' : 'Live Chat'}</span>
           <button type="button" onClick={logout} className="shrink-0 rounded-lg border border-slate-600 px-3 py-2 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300">Sign out</button>
         </div>
         <header className="flex min-h-20 shrink-0 items-center gap-3 border-b border-slate-800 px-4 py-4 sm:px-8">

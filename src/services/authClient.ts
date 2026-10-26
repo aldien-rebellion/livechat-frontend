@@ -2,11 +2,33 @@ import axios from 'axios'
 import type { AxiosAdapter, InternalAxiosRequestConfig } from 'axios'
 import type { AuthSession, LoginInput, RefreshResult, RegisterInput } from '../types/auth'
 
+const STORAGE_KEY = 'livechat_auth_session'
+
 // Payloads not fully specified by Backend #11 are isolated here for integration.
-export function createAuthClient(baseURL: string, adapter?: AxiosAdapter) {
+export function createAuthClient(
+  baseURL: string,
+  adapter?: AxiosAdapter,
+  storage: Storage | null = typeof window !== 'undefined' && window.localStorage ? window.localStorage : null
+) {
   const transport = axios.create({ baseURL, timeout: 15000, adapter })
   const api = axios.create({ baseURL, timeout: 15000, adapter })
-  let session: AuthSession | null = null
+
+  function loadInitialSession(): AuthSession | null {
+    if (!storage) return null
+    try {
+      const raw = storage.getItem(STORAGE_KEY)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as AuthSession
+      if (parsed?.access_token && parsed.user?.id) {
+        return parsed
+      }
+    } catch {
+      // Ignore corrupt session in storage
+    }
+    return null
+  }
+
+  let session: AuthSession | null = loadInitialSession()
   let revision = 0
   let identity = 0
   let refreshing: Promise<AuthSession> | null = null
@@ -14,6 +36,14 @@ export function createAuthClient(baseURL: string, adapter?: AxiosAdapter) {
 
   function setSession(value: AuthSession | null) {
     session = value
+    if (storage) {
+      try {
+        if (value) storage.setItem(STORAGE_KEY, JSON.stringify(value))
+        else storage.removeItem(STORAGE_KEY)
+      } catch {
+        // Ignore quota/access errors
+      }
+    }
     revision += 1
     listeners.forEach((listener) => listener(value))
   }

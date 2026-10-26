@@ -38,7 +38,11 @@ export default function MessageInput({ channelName, onSend, onTyping, disabled, 
           <button type="submit" disabled={disabled || !draft.trim()} aria-label="Send message" className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-teal-300 px-3 font-semibold text-slate-950 hover:bg-teal-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-300 disabled:cursor-not-allowed disabled:opacity-40"><Send aria-hidden="true" className="h-4 w-4" /><span className="hidden text-sm sm:inline">Send</span></button>
         </div>
       </div>
-      <p className="mt-2 text-xs text-slate-400">{mock ? 'Mock WebSocket · Messages reset on reload; no offline replay.' : 'Backend integration pending · Sending unavailable.'}</p>
+      <p className="mt-2 text-xs text-slate-400">
+        {mock
+          ? 'Mock WebSocket · Messages reset on reload; no offline replay.'
+          : (disabled ? 'Connecting to real-time chat server...' : 'Live WebSocket · Connected to real-time chat server')}
+      </p>
     </form>
   )
 }
