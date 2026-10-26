@@ -4,19 +4,22 @@ import Sidebar from '../components/Sidebar'
 import LiveChat from '../components/LiveChat'
 import WebSocketProvider from '../contexts/WebSocketContext'
 import { mockChannels, mockWorkspaces } from '../services/mockWorkspaceData'
-import type { Channel, WorkspaceSelection } from '../types/workspace'
+import type { WorkspaceSelection } from '../types/workspace'
 import { useAuth } from '../hooks/useAuth'
 import { isMockAuth } from '../services/authService'
+import { useWorkspaceChannels } from '../hooks/useWorkspaceChannels'
+import { channelHasName } from '../services/channelService'
 
 export default function Workspace() {
   const { session, logout } = useAuth()
-  const [channels, setChannels] = useState<Channel[]>(() => [...mockChannels])
   const [selection, setSelection] = useState<WorkspaceSelection>(() => {
     const workspaceId = mockWorkspaces[0]?.id ?? null
     return { workspaceId, channelId: mockChannels.find((channel) => channel.workspace_id === workspaceId)?.id ?? null }
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const mock = import.meta.env.VITE_WS_MODE === 'mock' || (session?.access_token.startsWith('mock-only-') ?? false)
+  const { channels, createChannel: saveChannel, syncError } = useWorkspaceChannels(session, selection.workspaceId, mock)
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -50,11 +53,11 @@ export default function Workspace() {
     setSidebarOpen(false)
   }
 
-  function createChannel(name: string) {
-    if (!selection.workspaceId || workspaceChannels.some((channel) => channel.name.toLowerCase() === name.toLowerCase())) return
-    const channel: Channel = { id: crypto.randomUUID(), workspace_id: selection.workspaceId, name, is_private: false }
-    setChannels((previous) => [...previous, channel])
-    setSelection({ ...selection, channelId: channel.id })
+  async function createChannel(name: string) {
+    if (!selection.workspaceId) return
+    if (workspaceChannels.some((channel) => channelHasName(channel, name))) throw new Error('This channel already exists.')
+    const channel = await saveChannel(selection.workspaceId, name)
+    setSelection((current) => current.workspaceId === channel.workspace_id ? { ...current, channelId: channel.id } : current)
   }
 
   const sidebarProps = {
@@ -65,6 +68,7 @@ export default function Workspace() {
     onSelectWorkspace: selectWorkspace,
     onSelectChannel: selectChannel,
     onCreateChannel: createChannel,
+    mock,
   }
 
   return (
@@ -86,12 +90,13 @@ export default function Workspace() {
           <button type="button" aria-label="Open sidebar" aria-haspopup="dialog" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)} className="shrink-0 rounded-lg border border-slate-700 p-3 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300 md:hidden"><Menu aria-hidden="true" className="h-5 w-5" /></button>
           <div className="min-w-0"><p className="break-words text-xs text-slate-400">{workspace?.name ?? 'Workspace'}</p><h1 className="mt-1 flex items-start gap-2 text-lg font-semibold"><ChannelIcon aria-hidden="true" className="mt-1 h-5 w-5 shrink-0 text-teal-300" /><span className="min-w-0 break-words">{selectedChannel?.name ?? 'No channel selected'}</span></h1></div>
         </header>
+        {syncError && <p role="status" className="px-4 py-2 text-sm text-amber-200 sm:px-8">{syncError}</p>}
         {selectedChannel ? <LiveChat key={`${selection.workspaceId}:${selectedChannel.id}`} channel={selectedChannel} /> : <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6 py-12 sm:px-10">
           <section className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/50 p-6 sm:p-10">
             <Layers3 aria-hidden="true" className="mb-6 h-9 w-9 text-teal-300" />
             <p className="text-xs font-semibold uppercase tracking-widest text-teal-300">Your workspace</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight">A fresh start for your workspace</h2>
-            <p className="mt-4 leading-relaxed text-slate-400">This workspace has no channels yet. Open the sidebar and choose New channel to create a mock channel.</p>
+            <p className="mt-4 leading-relaxed text-slate-400">This workspace has no channels yet. Open the sidebar and choose New channel to start a conversation.</p>
             <p role="status" className="mt-6 break-words rounded-xl border border-slate-700 bg-slate-950 p-4 text-sm text-slate-300">{workspace?.name ?? 'No workspace'} / No channel selected</p>
           </section>
         </div>}
