@@ -14,7 +14,7 @@ for (const name of ['chatConnection', 'webSocketAdapter', 'mockWebSocketAdapter'
 }
 const load = (name) => import(pathToFileURL(resolve(directory, `${name}.mjs`)).href)
 const { ChatConnection } = await load('chatConnection')
-const { webSocketUrl, createWebSocketAdapter } = await load('webSocketAdapter')
+const { webSocketUrl, createWebSocketAdapter, decodeLiveEvent } = await load('webSocketAdapter')
 const { createMockWebSocketAdapter, decodeMockEvent } = await load('mockWebSocketAdapter')
 const { createAuthClient } = await load('authClient')
 after(() => rm(directory, { recursive: true, force: true }))
@@ -179,6 +179,38 @@ test('send failures return false and preserve the composer contract', (t) => {
   open()
   sockets[0].send = () => { throw new Error('socket closed') }
   assert.equal(connection.sendMessage('w1', 'c1', 'keep draft'), false)
+  assert.match(connection.getSnapshot().error, /not sent/)
+})
+
+test('removing a deleted channel purges its messages and rejects late history', (t) => {
+  const { connection, sockets, open } = setup(t)
+  open()
+  sockets[0].handlers.event(message('keep', 'c1'))
+  sockets[0].handlers.event(message('deleted', 'c2'))
+  connection.setScope({ ...scope, channels: [channel('c1')] })
+  open()
+  assert.equal(connection.getSnapshot().messages.c2, undefined)
+  connection.mergeHistory('w1', 'c2', [message('late', 'c2').message])
+  assert.equal(connection.getSnapshot().messages.c2, undefined)
+  assert.equal(connection.getSnapshot().messages.c1[0].id, 'keep')
+})
+
+test('history merges with new live messages and cannot cross workspace scope', (t) => {
+  const { connection, sockets, open } = setup(t)
+  open()
+  sockets[0].handlers.event(message('live'))
+  connection.mergeHistory('w1', 'c1', [message('older').message, message('live').message, message('wrong', 'c2').message])
+  assert.deepEqual(connection.getSnapshot().messages.c1.map((item) => item.id), ['live', 'older'])
+  connection.setScope({ session, workspaceId: 'w2', channels: [channel('c1', 'w2')] })
+  connection.mergeHistory('w1', 'c1', [message('old-workspace').message])
+  assert.deepEqual(connection.getSnapshot().messages, {})
+})
+
+test('backend rejection of a stale deleted-room send is visible as an error', (t) => {
+  const { connection, sockets, open } = setup(t)
+  open()
+  const event = decodeLiveEvent(JSON.stringify({ type: 'error', message: 'Channel unavailable. Message was not sent.' }), 'w1')
+  sockets[0].handlers.event(event)
   assert.match(connection.getSnapshot().error, /not sent/)
 })
 

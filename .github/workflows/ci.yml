@@ -60,6 +60,10 @@ jobs:
             echo "lint script not configured in package.json, skipping."
           fi
 
+      - name: Run Automated Tests
+        if: steps.check_scaffold.outputs.pkg_exists == 'true'
+        run: npm test
+
       - name: Build Verification
         if: steps.check_scaffold.outputs.pkg_exists == 'true'
         run: |

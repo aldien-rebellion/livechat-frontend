@@ -113,7 +113,15 @@ export function createAuthClient(
     login: (input: LoginInput) => authenticate('/auth/login', input),
     // Registration response is unspecified: register, then explicitly log in.
     async register(input: RegisterInput) { await transport.post('/auth/register', input) },
-    logout() { identity += 1; setSession(null); refreshing = null },
+    logout() {
+      const token = session?.access_token
+      identity += 1
+      setSession(null)
+      refreshing = null
+      if (token && !token.startsWith('mock-only-')) {
+        void transport.post('/auth/logout', undefined, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
+      }
+    },
   }
 }
 

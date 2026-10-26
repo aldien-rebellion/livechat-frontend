@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Hash, LockKeyhole, Plus } from 'lucide-react'
+import { Hash, LockKeyhole, Plus, Trash2 } from 'lucide-react'
 import axios from 'axios'
 import { channelHasName } from '../services/channelService'
 import type { Channel } from '../types/workspace'
@@ -11,9 +11,11 @@ interface ChannelListProps {
   onSelectChannel: (channelId: string) => void
   onCreateChannel: (name: string) => void | Promise<void>
   mock?: boolean
+  canManage?: boolean
+  onDeleteChannel?: (channel: Channel) => void
 }
 
-export default function ChannelList({ channels, selectedChannelId, onSelectChannel, onCreateChannel, mock = false }: ChannelListProps) {
+export default function ChannelList({ channels, selectedChannelId, onSelectChannel, onCreateChannel, mock = false, canManage = false, onDeleteChannel }: ChannelListProps) {
   const id = useId()
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -82,12 +84,15 @@ export default function ChannelList({ channels, selectedChannelId, onSelectChann
           const selected = channel.id === selectedChannelId
           const Icon = channel.is_private ? LockKeyhole : Hash
           return (
-            <button key={channel.id} type="button" aria-current={selected ? 'true' : undefined} onClick={() => onSelectChannel(channel.id)} className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-300 ${selected ? 'bg-teal-300 font-semibold text-slate-950' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
-              <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 flex-1 break-words">{channel.name}</span>
-              {channel.is_private && <span className="sr-only">Private channel</span>}
-              {selected && <span className="sr-only">Selected</span>}
-            </button>
+            <div key={channel.id} className="flex items-center gap-1">
+              <button type="button" aria-current={selected ? 'true' : undefined} onClick={() => onSelectChannel(channel.id)} className={`flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-left text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-300 ${selected ? 'bg-teal-300 font-semibold text-slate-950' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+                <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 break-words">{channel.name}</span>
+                {channel.is_private && <span className="sr-only">Private channel</span>}
+                {selected && <span className="sr-only">Selected</span>}
+              </button>
+              {canManage && onDeleteChannel && <button type="button" aria-label={`Delete channel ${channel.name}`} onClick={() => onDeleteChannel(channel)} className="min-h-11 shrink-0 rounded-lg px-2 text-slate-400 hover:bg-rose-950 hover:text-rose-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-300"><Trash2 aria-hidden="true" className="h-4 w-4" /></button>}
+            </div>
           )
         })}
       </nav>

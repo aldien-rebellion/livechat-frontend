@@ -2,6 +2,7 @@ export interface Workspace {
   id: string
   name: string
   slug: string
+  can_manage?: boolean
 }
 
 export interface Channel {

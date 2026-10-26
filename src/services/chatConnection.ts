@@ -1,5 +1,5 @@
 import type { AuthSession } from '../types/auth'
-import type { ChannelMessages } from '../types/message'
+import type { ChannelMessages, Message } from '../types/message'
 import type { Channel } from '../types/workspace'
 import type { ChatEvent, ChatSocket, ClientFrame, ConnectionState, SocketFactory } from '../types/websocket'
 
@@ -40,8 +40,18 @@ export class ChatConnection {
   getSnapshot = () => this.snapshot
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
 
-  setMessages(messages: ChannelMessages) {
-    this.update({ messages: { ...this.snapshot.messages, ...messages } })
+  mergeHistory(workspaceId: string, channelId: string, history: Message[]) {
+    if (workspaceId !== this.scope?.workspaceId || !this.scope.channels.some((channel) => channel.id === channelId)) return
+    const existing = this.snapshot.messages[channelId] ?? []
+    const ids = new Set(existing.map((message) => message.id))
+    const additions = history.filter((message) => {
+      if (message.channel_id !== channelId || ids.has(message.id)) return false
+      ids.add(message.id)
+      return true
+    })
+    if (!additions.length) return
+    const merged = [...existing, ...additions].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))
+    this.update({ messages: { ...this.snapshot.messages, [channelId]: merged } })
   }
 
   private update(value: Partial<Snapshot>) {
@@ -67,7 +77,12 @@ export class ChatConnection {
       const removed = this.scope.channels.some((old) => !scope.channels.some((next) => next.id === old.id && next.workspace_id === old.workspace_id))
       this.scope = scope
       // There is no documented unsubscribe: reconnect if access is removed.
-      if (removed) { this.clearConnection(); this.connect() }
+      if (removed) {
+        this.clearConnection()
+        const validIds = new Set(scope.channels.map((channel) => channel.id))
+        this.update({ messages: Object.fromEntries(Object.entries(this.snapshot.messages).filter(([id]) => validIds.has(id))), typing: {} })
+        this.connect()
+      }
       else if (this.snapshot.state === 'connected') this.subscribeChannels()
       return
     }
@@ -79,7 +94,9 @@ export class ChatConnection {
     this.scope = scope
     this.attempts = 0
     const messages = scope ? this.workspaceMessages.get(scope.workspaceId) ?? this.options.initialMessages?.(scope.channels) ?? {} : {}
-    this.update({ state: 'disconnected', messages: sameWorkspace ? this.snapshot.messages : messages, typing: {}, error: null })
+    const validIds = new Set(scope?.channels.map((channel) => channel.id) ?? [])
+    const scopedMessages = Object.fromEntries(Object.entries(sameWorkspace ? this.snapshot.messages : messages).filter(([id]) => validIds.has(id)))
+    this.update({ state: 'disconnected', messages: scopedMessages, typing: {}, error: null })
     if (scope) this.connect()
   }
   private connect() {
@@ -159,6 +176,7 @@ export class ChatConnection {
   }
   private receive(event: ChatEvent) {
     if (event.workspaceId !== this.scope?.workspaceId) return
+    if (event.type === 'error') { this.update({ error: event.message }); return }
     const channelId = event.type === 'new_message' ? event.message.channel_id : event.channelId
     const channelValid = this.scope?.channels.some((channel) => channel.id === channelId && channel.workspace_id === this.scope?.workspaceId)
     if (!channelValid) return

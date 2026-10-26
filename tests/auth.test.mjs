@@ -135,6 +135,7 @@ test('late 401 from an old account cannot replay as a new account', async () => 
   const sent = new Promise((resolve) => { ready = resolve })
   const client = createAuthClient('/api/v1', async (config) => {
     if (config.url === '/auth/login') return reply(config, session)
+    if (config.url === '/auth/logout') return reply(config, undefined, 204)
     ready()
     return new Promise((resolve, reject) => { finish = () => { try { resolve(reply(config, {}, 401)) } catch (error) { reject(error) } } })
   })
@@ -146,6 +147,21 @@ test('late 401 from an old account cannot replay as a new account', async () => 
   finish()
   await assert.rejects(request)
   assert.ok(client.getSession())
+})
+
+test('logout clears local state immediately and revokes the authenticated server session', async () => {
+  let revokedToken
+  const client = createAuthClient('/api/v1', async (config) => {
+    if (config.url === '/auth/login') return reply(config, session)
+    assert.equal(config.url, '/auth/logout')
+    revokedToken = config.headers.get('Authorization')
+    return reply(config, undefined, 204)
+  })
+  await client.login(input)
+  client.logout()
+  assert.equal(client.getSession(), null)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(revokedToken, 'Bearer old-access')
 })
 
 test('mock register/login, duplicate and incorrect password errors, fresh instance reset', async () => {

@@ -3,6 +3,7 @@ export interface AuthUser {
   email: string
   username: string
   full_name: string
+  is_admin?: boolean
 }
 
 export interface LoginInput { email: string; password: string }

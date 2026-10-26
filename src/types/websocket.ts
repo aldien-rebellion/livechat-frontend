@@ -10,6 +10,7 @@ export type ClientFrame =
 
 // Internal normalized events, NOT a confirmed Backend wire format.
 export type ChatEvent =
+  | { type: 'error'; workspaceId: string; message: string }
   | { type: 'new_message'; workspaceId: string; message: Message }
   | { type: 'user_typing'; workspaceId: string; channelId: string; userId: string; name: string }
 
