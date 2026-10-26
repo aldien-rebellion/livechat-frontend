@@ -92,6 +92,57 @@ export default function WebSocketProvider({ workspaceId, channels, children }: {
     client.connection.setScope(session && workspaceId ? { session, workspaceId, channels } : null)
   }, [client, session, workspaceId, channels])
 
+  useEffect(() => {
+    if (isMock || !session || channels.length === 0) return
+    let active = true
+
+    const fetchHistory = async () => {
+      try {
+        const snap = client.connection.getSnapshot()
+        const updated: ChannelMessages = { ...snap.messages }
+        let hasNew = false
+
+        for (const ch of channels) {
+          try {
+            const res = await fetch(`/api/v1/channels/${ch.id}/messages?limit=50`, {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            })
+            if (res.ok) {
+              const apiMsgs = await res.json()
+              if (Array.isArray(apiMsgs) && apiMsgs.length > 0) {
+                const existing = updated[ch.id] ?? []
+                const existingIds = new Set(existing.map((m) => m.id))
+                const merged = [...existing]
+                for (const m of apiMsgs) {
+                  if (!existingIds.has(m.id)) {
+                    merged.push(m)
+                    existingIds.add(m.id)
+                  }
+                }
+                merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                updated[ch.id] = merged
+                hasNew = true
+              }
+            }
+          } catch {
+            // Ignore channel history error
+          }
+        }
+
+        if (active && hasNew) {
+          client.connection.setMessages(updated)
+        }
+      } catch {
+        // Ignore general fetch error
+      }
+    }
+
+    fetchHistory()
+    return () => {
+      active = false
+    }
+  }, [client, session, channels, isMock])
+
   return (
     <WebSocketContext
       value={{
