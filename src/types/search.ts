@@ -1,7 +1,7 @@
 import type { Message } from './message'
 import type { Channel } from './workspace'
 
-// UI contract only. Backend response envelope/author fields are not yet specified.
+// Search uses the selected channel and the shared authenticated API client.
 export interface SearchRequest {
   workspaceId: string
   channel: Channel

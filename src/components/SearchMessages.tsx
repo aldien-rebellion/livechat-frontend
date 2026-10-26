@@ -1,25 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import type { Channel } from '../types/workspace'
 import type { Message } from '../types/message'
-import type { SearchService } from '../types/search'
 import SearchModal from './SearchModal'
 import { createMockSearchService } from '../services/mockSearchService'
+import { createApiSearchService } from '../services/searchService'
+import { authService } from '../services/authService'
 
 export default function SearchMessages({ channel, messages, mockChat, onSelect }: {
   channel: Channel; messages: Message[]; mockChat: boolean; onSelect: (message: Message) => void
 }) {
   const [open, setOpen] = useState(false)
-  const [service, setService] = useState<SearchService | null>(null)
-  const messagesRef = useRef(messages)
-  useEffect(() => { messagesRef.current = messages }, [messages])
-  useEffect(() => {
-    if (mockChat) {
-      setService(createMockSearchService(() => messagesRef.current))
-    } else {
-      setService(null)
-    }
-  }, [mockChat])
+  const liveService = useMemo(() => createApiSearchService(authService.api), [])
+  const mockService = useMemo(() => createMockSearchService(() => messages), [messages])
+  const service = mockChat ? mockService : liveService
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k') {
@@ -38,6 +32,6 @@ export default function SearchMessages({ channel, messages, mockChat, onSelect }
       className="mt-2 flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-2 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300">
       <Search aria-hidden="true" className="h-4 w-4" />Search messages <kbd className="hidden text-xs text-slate-400 sm:inline">Ctrl K</kbd>
     </button>
-    {open && <SearchModal channel={channel} service={mockChat ? service : null} onClose={() => setOpen(false)} onSelect={(message) => { setOpen(false); onSelect(message) }} />}
+    {open && <SearchModal key={`${channel.workspace_id}:${channel.id}`} channel={channel} service={service} mock={mockChat} onClose={() => setOpen(false)} onSelect={(message) => { setOpen(false); onSelect(message) }} />}
   </>
 }

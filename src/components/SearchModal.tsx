@@ -7,13 +7,14 @@ import type { SearchService } from '../types/search'
 interface Props {
   channel: Channel
   service: SearchService | null
+  mock?: boolean
   onClose: () => void
   onSelect: (message: Message) => void
 }
 type SearchState = { status: 'idle' | 'loading' | 'success' | 'error'; results: Message[] }
 const focusStyle = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300'
 
-export default function SearchModal({ channel, service, onClose, onSelect }: Props) {
+export default function SearchModal({ channel, service, mock = false, onClose, onSelect }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
@@ -65,14 +66,14 @@ export default function SearchModal({ channel, service, onClose, onSelect }: Pro
       </header>
       <div className="shrink-0 space-y-3 p-4 sm:px-6">
         <p id="search-scope" className="break-words text-sm text-slate-300">Search in #{channel.name} · current workspace only</p>
-        <p className="text-xs text-amber-200">{service ? 'Mock search · local chat messages only · no Backend API' : 'Search unavailable · Backend integration pending. No API request is sent.'}</p>
+        <p className="text-xs text-slate-400">{!service ? 'Search is unavailable. Please try again later.' : mock ? 'Demo search · local messages only' : 'Search saved messages in this channel.'}</p>
         <label htmlFor="message-search" className="sr-only">Search message text</label>
         <input ref={inputRef} id="message-search" type="search" autoComplete="off" maxLength={500} disabled={!service}
           value={query} onChange={(event) => { const value = event.target.value; setQuery(value); setState({ status: value.trim() ? 'loading' : 'idle', results: [] }) }}
           placeholder="Search message text…" className={`w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-3 text-base disabled:opacity-50 ${focusStyle}`} />
       </div>
       <div className="min-h-0 overflow-y-auto overscroll-contain px-4 pb-4 sm:px-6" aria-busy={state.status === 'loading'}>
-        <p role="status" className="py-3 text-sm text-slate-400">{!service ? 'Search will be available after Backend integration.' : state.status === 'idle' ? 'Enter text to search this channel.' : state.status === 'loading' ? 'Searching…' : state.status === 'success' ? state.results.length ? `${state.results.length} result(s) · up to 30 · newest first` : 'No messages found. Try a different search.' : ''}</p>
+        <p role="status" className="py-3 text-sm text-slate-400">{!service ? 'Search is unavailable.' : state.status === 'idle' ? 'Enter text to search this channel.' : state.status === 'loading' ? 'Searching…' : state.status === 'success' ? state.results.length ? `${state.results.length} result(s) · up to 30${mock ? ' · newest first' : ' · most relevant first'}` : 'No messages found. Try a different search.' : ''}</p>
         {state.status === 'error' && <div role="alert" className="rounded-xl border border-rose-400/40 p-4 text-sm"><p>Unable to search messages. Please try again.</p><button type="button" onClick={() => { setState({ status: 'loading', results: [] }); setAttempt((value) => value + 1) }} className={`mt-3 rounded-lg border border-slate-600 px-4 py-2 ${focusStyle}`}>Retry search</button></div>}
         {state.status === 'success' && state.results.length > 0 && <ol aria-label="Search results" className="space-y-2">{state.results.map((message) => <li key={message.id}>
           <button type="button" onClick={() => onSelect(message)} className={`w-full rounded-xl border border-slate-700 bg-slate-950/50 p-4 text-left hover:border-teal-300 ${focusStyle}`}>

@@ -9,10 +9,28 @@ function queryFor(request: SearchRequest) {
   return request.query.trim()
 }
 
-// Planned endpoint; inject authService.api and a confirmed response decoder when
-// real workspace/channel IDs, authorization and history loading are integrated.
-// Never assume an undocumented Backend response envelope or send demo IDs.
-export function createApiSearchService(api: AxiosInstance, decode: (data: unknown) => Message[]): SearchService {
+export function decodeSearchMessages(data: unknown): Message[] {
+  if (!Array.isArray(data)) throw new Error('Invalid search response.')
+  return data.map((value: unknown) => {
+    if (!value || typeof value !== 'object') throw new Error('Invalid search message.')
+    const message = value as Record<string, unknown>
+    for (const key of ['id', 'channel_id', 'user_id', 'content', 'created_at']) {
+      if (typeof message[key] !== 'string') throw new Error('Invalid search message.')
+    }
+    if (!message.id || !message.channel_id || !message.user_id || !Number.isFinite(Date.parse(message.created_at as string))) {
+      throw new Error('Invalid search message.')
+    }
+    const author = message.author as Record<string, unknown> | undefined
+    const userId = message.user_id as string
+    return {
+      id: message.id as string, channel_id: message.channel_id as string, user_id: userId,
+      content: message.content as string, created_at: message.created_at as string,
+      author: { id: userId, full_name: typeof author?.full_name === 'string' && author.full_name ? author.full_name : userId },
+    }
+  })
+}
+
+export function createApiSearchService(api: AxiosInstance, decode: (data: unknown) => Message[] = decodeSearchMessages): SearchService {
   return { async search(request) {
     const query = queryFor(request)
     request.signal.throwIfAborted()

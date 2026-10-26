@@ -13,7 +13,7 @@ for (const name of ['searchService', 'mockSearchService']) {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
   }).outputText)
 }
-const { createApiSearchService } = await import(pathToFileURL(resolve(directory, 'searchService.mjs')).href)
+const { createApiSearchService, decodeSearchMessages } = await import(pathToFileURL(resolve(directory, 'searchService.mjs')).href)
 const { createMockSearchService } = await import(pathToFileURL(resolve(directory, 'mockSearchService.mjs')).href)
 after(() => rm(directory, { recursive: true, force: true }))
 
@@ -108,4 +108,13 @@ test('API adapter preserves backend relevance order and caps decoded results at 
   assert.equal(results.length, 30)
   assert.equal(results[0].id, '0')
   assert.equal(results.at(-1).id, '29')
+})
+
+test('live decoder maps actual API results, fills legacy authors and rejects invalid message data', () => {
+  assert.deepEqual(decodeSearchMessages([message(1)]), [message(1)])
+  const { author, ...legacy } = message(1)
+  assert.deepEqual(decodeSearchMessages([legacy])[0].author, { id: 'u1', full_name: 'u1' })
+  for (const invalid of [null, {}, [null], [{ ...message(1), created_at: 'invalid' }], [{ ...message(1), content: undefined }]]) {
+    assert.throws(() => decodeSearchMessages(invalid), /Invalid search/)
+  }
 })
