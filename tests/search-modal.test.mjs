@@ -34,6 +34,7 @@ async function setup(t, service) {
   const calls = { closed: 0, selected: [] }
   document.getElementById('opener').focus()
   await act(async () => root.render(createElement(SearchModal, { channel, service,
+    mock: true,
     onClose: () => calls.closed++, onSelect: (message) => calls.selected.push(message),
   })))
   t.after(async () => { await act(async () => root.unmount()) })
@@ -54,7 +55,7 @@ test('modal labels, initial focus, debounce, loading, result metadata, plain tex
   } })
   assert.equal(document.activeElement, input)
   assert.ok(document.querySelector('dialog[open][aria-labelledby="search-title"]'))
-  assert.match(document.body.textContent, /Mock search/)
+  assert.match(document.body.textContent, /Demo search/)
   await type('first')
   await type('สวัสดี')
   assert.equal(requests.length, 0)
@@ -137,7 +138,7 @@ test('new queries, clear and unmount abort work; late results cannot overwrite t
 test('Tab boundaries wrap inside modal; native cancel and close button call onClose', async (t) => {
   const { input, calls } = await setup(t, null)
   assert.equal(input.disabled, true)
-  assert.match(document.body.textContent, /Backend integration pending/)
+  assert.match(document.body.textContent, /Search is unavailable/)
   const close = document.querySelector('dialog button')
   close.focus()
   close.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))

@@ -20,7 +20,10 @@ export default function LiveChat({ channel }: { channel: Channel }) {
       </p>
       {socket.error && <p role="alert" className="mt-1 text-amber-200">{socket.error}</p>}
       <SearchMessages channel={channel} messages={socket.messages[channel.id] ?? []} mockChat={socket.mock ?? false}
-        onSelect={(message) => setJumpTarget({ id: message.id })} />
+        onSelect={(message) => {
+          socket.connection?.mergeHistory(channel.workspace_id, channel.id, [message])
+          setJumpTarget({ id: message.id })
+        }} />
       {socket.mock && <details className="mt-2 text-xs text-slate-400"><summary className="cursor-pointer">Mock test controls (no Backend)</summary><div className="mt-2 flex flex-wrap gap-2">
         <button type="button" disabled={!connected} onClick={socket.simulateDisconnect} className="rounded border border-slate-600 p-2 disabled:opacity-40">Disconnect mock</button>
         <button type="button" disabled={!connected} onClick={() => socket.simulatePeer?.(channel.id, false)} className="rounded border border-slate-600 p-2 disabled:opacity-40">Receive mock message</button>
