@@ -9,10 +9,11 @@ import { createMockWebSocketAdapter } from '../services/mockWebSocketAdapter'
 import { createWebSocketAdapter, decodeLiveEvent } from '../services/webSocketAdapter'
 import { createMockMessages } from '../services/mockMessageData'
 
-const MSG_STORAGE_PREFIX = 'livechat_stored_messages_'
+// The old cache may contain unrelated history returned for unknown channels.
+const MSG_STORAGE_PREFIX = 'livechat_stored_messages_v2_'
 
-function loadStoredMessages(channels: Channel[]): ChannelMessages {
-  const fallback = createMockMessages()
+function loadStoredMessages(channels: Channel[], mock = false): ChannelMessages {
+  const fallback = mock ? createMockMessages() : {}
   if (typeof window === 'undefined' || !window.localStorage) {
     return Object.fromEntries(channels.map((channel) => [channel.id, fallback[channel.id] ?? []]))
   }
@@ -55,7 +56,7 @@ export default function WebSocketProvider({ workspaceId, channels, children }: {
     if (isMock) {
       const adapter = createMockWebSocketAdapter()
       const connection = new ChatConnection(adapter.factory, {
-        initialMessages: (chList) => loadStoredMessages(chList),
+        initialMessages: (chList) => loadStoredMessages(chList, true),
       })
       return { adapter, connection, mock: true }
     }
